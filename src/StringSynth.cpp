@@ -80,7 +80,7 @@ namespace geiger {
 
 			for(int i = 0; i < sample.buffer_length; i++) {
 				sample.audio_buffer[i] = Amplitude(i*dt + offset_t);
-            }
+			}
 
 			return sample;
 		}
@@ -92,14 +92,14 @@ namespace geiger {
 			}
 		}
 
-        void StringSynth::Unpause() {
+		void StringSynth::Unpause() {
 			if(!stopped) {
 				SDL_PauseAudioDevice(device_ID, 0);
 				paused = false;
 			}
-        }
+		}
 
-        void StringSynth::Play() {
+		void StringSynth::Play() {
 			SDL_AudioSpec want;
 			want.freq = 44100;
 			want.format = AUDIO_F32SYS;
@@ -112,9 +112,9 @@ namespace geiger {
 			SDL_PauseAudioDevice(device_ID, 0);
 			paused = false;
 			stopped = false;
-        }
+		}
 
-        void StringSynth::Stop() {
+		void StringSynth::Stop() {
 			SDL_PauseAudioDevice(device_ID, 1);
 			SDL_CloseAudioDevice(device_ID);
 			stopped = true;
@@ -122,34 +122,34 @@ namespace geiger {
 			time_elapsed = 0.0f;
 			distance_struck = 0.0f;
 			initial_offset = 0.0f;
-        }
+		}
 
-        void StringSynth::SetVolume(float percent) {
+		void StringSynth::SetVolume(float percent) {
 			volume = percent;
-        }
+		}
 
-        float StringSynth::GetVolume() const {
+		float StringSynth::GetVolume() const {
 			return volume;
-        }
+		}
 
-        float StringSynth::HarmonicAmplitude(uint32_t harmonic) {
-            float numer = 2.0f * initial_offset * (length * length);
-            float denom = (M_PI * M_PI) * (harmonic * harmonic) * (distance_struck * (length - distance_struck));
-            float factor = std::sin(harmonic * M_PI * (distance_struck / length));
+		float StringSynth::HarmonicAmplitude(uint32_t harmonic) {
+			float numer = 2.0f * initial_offset * (length * length);
+			float denom = (M_PI * M_PI) * (harmonic * harmonic) * (distance_struck * (length - distance_struck));
+			float factor = std::sin(harmonic * M_PI * (distance_struck / length));
 
-            return (numer / denom) * factor;
-        }
+			return (numer / denom) * factor;
+		}
 
 		float StringSynth::HarmonicFrequency(uint32_t harmonic) {
 			return harmonic * fundamental_frequency;
 		}
 
-        void stringsynth_callback(void* synth_, Uint8* stream_, int len_) {
-            StringSynth* synth = (StringSynth*)(synth_);
+		void stringsynth_callback(void* synth_, Uint8* stream_, int len_) {
+			StringSynth* synth = (StringSynth*)(synth_);
 
 			float dt = 1.0f / (float)(synth->specification.freq);
 
-            if(synth->specification.format != AUDIO_F32SYS) {
+			if(synth->specification.format != AUDIO_F32SYS) {
 				if(synth->specification.format == AUDIO_S16SYS) {
 					uint16_t* stream = (uint16_t*)(stream_);
 
@@ -160,21 +160,21 @@ namespace geiger {
 						synth->time_elapsed += dt;
 					}
 				}
-            }
+			}
 
-            float* stream = (float*)(stream_);
+			float* stream = (float*)(stream_);
 
-            len_ = len_ / sizeof(float);
+			len_ = len_ / sizeof(float);
 
-            while(synth->parameter_change.exchange(true));
+			while(synth->parameter_change.exchange(true));
 
-            for(int i = 0; i < len_; i++) {
+			for(int i = 0; i < len_; i++) {
 				stream[i] = synth->Amplitude(synth->time_elapsed);
 				synth->time_elapsed += dt;
-            }
+			}
 
-            synth->parameter_change.store(false);
-        }
+			synth->parameter_change.store(false);
+		}
 
 	}
 }
