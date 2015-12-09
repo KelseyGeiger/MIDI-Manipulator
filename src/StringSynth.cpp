@@ -3,24 +3,50 @@
 namespace geiger {
 	namespace midi {
 
+		StringSynth::StringSynth() : parameter_change(false)
+		{
+			active_length = 0.6069f;
+			linear_density = 0.002f;
+			damping_ratio = 1.0f;
+
+			mass = linear_density * active_length;
+
+			TuneToFrequency(110.0f);
+
+			max_amplitude = 0.0f;
+			volume = 0.5f;
+
+			distance_struck = 0.5f * active_length;
+			initial_offset = 0.0f;
+			number_of_harmonics = 18;
+			time_elapsed = 0.0f;
+
+			paused = false;
+			stopped = true;
+		}
+
 		StringSynth::StringSynth(float L, float ten, float mu, float gamma) : parameter_change(false)
 		{
 			tension = ten;
-			length = L;
+			active_length = L;
 			linear_density = mu;
 			damping_ratio = gamma;
 
-			mass = linear_density * length;
+			mass = linear_density * active_length;
 			velocity = std::sqrt(tension / linear_density);
-			fundamental_frequency = velocity / (2 * length);
+			fundamental_frequency = velocity / (2 * active_length);
 			float natural_frequency = 2 * M_PI * fundamental_frequency;
 			spring_constant = (natural_frequency * natural_frequency * mass);
 
-			volume = 0.1f;
+			max_amplitude = 0.0f;
+			volume = 0.5f;
 			distance_struck = 0.0f;
 			initial_offset = 0.0f;
-			number_of_harmonics = 12;
+			number_of_harmonics = 15;
 			time_elapsed = 0.0f;
+
+			paused = false;
+			stopped = true;
 		}
 
 		StringSynth::~StringSynth()
@@ -36,7 +62,110 @@ namespace geiger {
 			parameter_change.store(false);
 		}
 
+		void StringSynth::SetActiveLength(float len) {
+			if(len <= 0.0f) {
+				return;
+			}
+
+			while(parameter_change.exchange(true));
+
+			active_length = len;
+
+			mass = linear_density * active_length;
+			fundamental_frequency = velocity / (2 * active_length);
+			float natural_frequency = 2 * M_PI * fundamental_frequency;
+			spring_constant = (natural_frequency * natural_frequency * mass);
+
+			parameter_change.store(false);
+		}
+
+		void StringSynth::SetTension(float ten) {
+			if(ten <= 0.0f) {
+				return;
+			}
+
+			while(parameter_change.exchange(true));
+
+			tension = ten;
+
+			velocity = std::sqrt(tension / linear_density);
+
+			parameter_change.store(false);
+		}
+
+		void StringSynth::SetLinearDensity(float mu) {
+			if(mu <= 0.0f) {
+				return;
+			}
+
+			while(parameter_change.exchange(true));
+
+			linear_density = mu;
+
+			mass = linear_density * active_length;
+			velocity = std::sqrt(tension / linear_density);
+			fundamental_frequency = velocity / (2 * active_length);
+			float natural_frequency = 2 * M_PI * fundamental_frequency;
+			spring_constant = (natural_frequency * natural_frequency * mass);
+
+			parameter_change.store(false);
+		}
+
+		void StringSynth::SetDampingRatio(float gamma) {
+            if(gamma < 0.0f) {
+				return;
+            }
+
+			while(parameter_change.exchange(true));
+
+			damping_ratio = gamma;
+
+			parameter_change.store(false);
+		}
+
+		uint32_t StringSynth::GetHarmonicCount() const {
+
+			return number_of_harmonics;
+		}
+
+		float StringSynth::GetActiveLength() const {
+			return active_length;
+		}
+
+		float StringSynth::GetTension() const {
+			return tension;
+		}
+
+		float StringSynth::GetLinearDensity() const {
+			return linear_density;
+		}
+
+		float StringSynth::GetDampingRatio() const {
+			return damping_ratio;
+		}
+
+		void StringSynth::TuneToNote(Note n) {
+			TuneToFrequency(NoteToFrequency(n));
+		}
+
+		void StringSynth::TuneToFrequency(float freq) {
+			while(parameter_change.exchange(true));
+
+            fundamental_frequency = freq;
+            float natural_frequency = 2 * M_PI * fundamental_frequency;
+			spring_constant = (natural_frequency * natural_frequency * mass);
+            velocity = 2.0f * active_length * fundamental_frequency;
+
+            tension = linear_density * (velocity * velocity);
+
+            parameter_change.store(false);
+		}
+
 		void StringSynth::Pluck(float dist, float offset) {
+			if(dist <= 0.0f || dist >= active_length) {
+				return;
+			}
+
 			while(parameter_change.exchange(true));
 
 			distance_struck = dist;
@@ -47,6 +176,11 @@ namespace geiger {
 		}
 
 		void StringSynth::Strike(float dist, float force) {
+
+			if(dist <= 0.0f || dist >= active_length) {
+				return;
+			}
+
 			while(parameter_change.exchange(true));
 
 			distance_struck = dist;
@@ -56,7 +190,16 @@ namespace geiger {
 			parameter_change.store(false);
 		}
 
-		float StringSynth::Amplitude(float t) {
+		void StringSynth::Silence() {
+			while(parameter_change.exchange(true));
+
+			distance_struck = 0.5f * active_length;
+			initial_offset = 0.0f;
+
+			parameter_change.store(false);
+		}
+
+		float StringSynth::Value(float t) {
 
 			if(t < 0.0f) {
 				return 0.0f;
@@ -69,7 +212,13 @@ namespace geiger {
 				total_amplitude += HarmonicAmplitude(j) * std::cos(2.0f * M_PI * HarmonicFrequency(j) * t) * std::exp(-damping_ratio * j * t);
 			}
 
-			return volume * (total_amplitude / initial_offset);
+			if(total_amplitude > max_amplitude) {
+				max_amplitude = total_amplitude;
+			}
+
+			float result = volume * (total_amplitude / max_amplitude);
+
+			return result;
 		}
 
 		SoundSample StringSynth::GenerateSample(uint32_t sample_rate, uint32_t duration_milliseconds, int32_t offset_milliseconds) {
@@ -78,11 +227,28 @@ namespace geiger {
 			float dt = 1.0f / (float)(sample_rate);
 			float offset_t = ((float)(sample_rate) / 1000.0f) * offset_milliseconds;
 
-			for(int i = 0; i < sample.buffer_length; i++) {
-				sample.audio_buffer[i] = Amplitude(i*dt + offset_t);
+			for(uint32_t i = 0; i < sample.buffer_length; i++) {
+				sample.audio_buffer[i] = Value(i*dt + offset_t);
 			}
 
 			return sample;
+		}
+
+		void StringSynth::PlayNote(Note n) {
+			float old_freq = fundamental_frequency;
+
+			float frequency = NoteToFrequency(n);
+
+			TuneToFrequency(frequency);
+
+			Play();
+			Pluck(0.5f * active_length, 0.05f);
+
+			std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+
+			Stop();
+
+			TuneToFrequency(old_freq);
 		}
 
 		void StringSynth::Pause() {
@@ -119,13 +285,17 @@ namespace geiger {
 			SDL_CloseAudioDevice(device_ID);
 			stopped = true;
 			paused = false;
-			time_elapsed = 0.0f;
+			time_elapsed = -1.0f;
 			distance_struck = 0.0f;
 			initial_offset = 0.0f;
 		}
 
 		void StringSynth::SetVolume(float percent) {
-			volume = percent;
+			if(percent >= 0.0f) {
+				volume = percent;
+			} else {
+                volume = -percent;
+			}
 		}
 
 		float StringSynth::GetVolume() const {
@@ -133,9 +303,9 @@ namespace geiger {
 		}
 
 		float StringSynth::HarmonicAmplitude(uint32_t harmonic) {
-			float numer = 2.0f * initial_offset * (length * length);
-			float denom = (M_PI * M_PI) * (harmonic * harmonic) * (distance_struck * (length - distance_struck));
-			float factor = std::sin(harmonic * M_PI * (distance_struck / length));
+			float numer = 2.0f * initial_offset * (active_length * active_length);
+			float denom = (M_PI * M_PI) * (harmonic * harmonic) * (distance_struck * (active_length - distance_struck));
+			float factor = std::sin(harmonic * M_PI * (distance_struck / active_length));
 
 			return (numer / denom) * factor;
 		}
@@ -143,6 +313,7 @@ namespace geiger {
 		float StringSynth::HarmonicFrequency(uint32_t harmonic) {
 			return harmonic * fundamental_frequency;
 		}
+
 
 		void stringsynth_callback(void* synth_, Uint8* stream_, int len_) {
 			StringSynth* synth = (StringSynth*)(synth_);
@@ -156,7 +327,7 @@ namespace geiger {
 					len_ = len_ / 2;
 
 					for(int i = 0; i < len_; i++) {
-						stream[i] = (int16_t)(synth->Amplitude(synth->time_elapsed) * std::numeric_limits<int16_t>::max());
+						stream[i] = (int16_t)(synth->Value(synth->time_elapsed) * std::numeric_limits<int16_t>::max());
 						synth->time_elapsed += dt;
 					}
 				}
@@ -169,7 +340,7 @@ namespace geiger {
 			while(synth->parameter_change.exchange(true));
 
 			for(int i = 0; i < len_; i++) {
-				stream[i] = synth->Amplitude(synth->time_elapsed);
+				stream[i] = synth->Value(synth->time_elapsed);
 				synth->time_elapsed += dt;
 			}
 

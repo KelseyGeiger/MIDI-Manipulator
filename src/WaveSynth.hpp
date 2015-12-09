@@ -18,44 +18,40 @@ namespace geiger {
 				};
 
 				WaveSynth();
-				WaveSynth(WAVE_TYPE type, float freq, float volume, uint32_t samp_rate = 44100, int32_t dur_milli = -1);
+				WaveSynth(WAVE_TYPE type, float freq, float volume);
 				virtual ~WaveSynth();
 
 				void SetWaveType(WAVE_TYPE type);
 				void SetFrequency(float freq);
-				void SetSampleRate(uint32_t rate);
-				void SetDuration(int32_t milliseconds);
+
+				virtual float Value(float t);
 
 				void PlayWave(WAVE_TYPE type, float freq, float volume, uint32_t samp_rate = 44100, int32_t dur_milli = -1);
 
-				virtual SoundSample GenerateSample(uint32_t sample_rate, uint32_t duration_milliseconds, int32_t offset_milliseconds);
+				virtual SoundSample GenerateSample(uint32_t sample_rate, uint32_t duration_milliseconds, int32_t offset_milliseconds) override;
 
-				virtual void Pause();
-				virtual void Unpause();
+				virtual void PlayNote(Note n) override;
 
-				virtual void Play();
-				virtual void Stop();
+				virtual void Pause() override;
+				virtual void Unpause() override;
 
-				virtual void SetVolume(float percent);
-				virtual float GetVolume() const;
+				virtual void Play() override;
+				virtual void Stop() override;
+
+				virtual void SetVolume(float percent) override;
+				virtual float GetVolume() const override;
 
 			private:
-				void FillBuffer();
-
 				friend void wavesynth_callback(void* synth_, Uint8* stream_, int len_);
 
 				WAVE_TYPE wave;
 				float frequency;
 				float amplitude;
-				int32_t duration_milliseconds;
-				uint32_t sample_rate;
+
+				float time_elapsed;
 
 				bool paused;
 				bool stopped;
-
-				int16_t* audio_buffer;
-				uint32_t buffer_pos;
-				uint32_t buffer_length;
 
 				SDL_AudioDeviceID device_ID;
 				SDL_AudioSpec specification;

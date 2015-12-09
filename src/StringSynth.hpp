@@ -3,31 +3,54 @@
 
 #include "Synth.hpp"
 
+#define NO_STDIO_REDIRECT
+
+#include "SDL2/SDL.h"
+#include <thread>
+#include <chrono>
+
 namespace geiger {
 	namespace midi {
 
 		class StringSynth : public Synth
 		{
 			public:
+				StringSynth();
 				StringSynth(float L, float ten, float mu, float gamma);
 				virtual ~StringSynth();
 
 				void SetHarmonicCount(uint32_t harmonics);
+				void SetActiveLength(float length);
+				void SetTension(float tension);
+				void SetLinearDensity(float mu);
+				void SetDampingRatio(float gamma);
 
+				uint32_t GetHarmonicCount() const;
+				float GetActiveLength() const;
+				float GetTension() const;
+				float GetLinearDensity() const;
+				float GetDampingRatio() const;
+
+				void TuneToNote(Note n);
+				void TuneToFrequency(float freq);
 				void Pluck(float dist, float offset);
 				void Strike(float dist, float force);
-				float Amplitude(float t);
+				void Silence();
 
-				virtual SoundSample GenerateSample(uint32_t sample_rate, uint32_t duration_milliseconds, int32_t offset_milliseconds);
+				virtual float Value(float t) override;
 
-				virtual void Pause();
-				virtual void Unpause();
+				virtual SoundSample GenerateSample(uint32_t sample_rate, uint32_t duration_milliseconds, int32_t offset_milliseconds) override;
 
-				virtual void Play();
-				virtual void Stop();
+				virtual void PlayNote(Note n) override;
 
-				virtual void SetVolume(float percent);
-				virtual float GetVolume() const;
+				virtual void Pause() override;
+				virtual void Unpause() override;
+
+				virtual void Play() override;
+				virtual void Stop() override;
+
+				virtual void SetVolume(float percent) override;
+				virtual float GetVolume() const override;
 
 			private:
 
@@ -36,6 +59,7 @@ namespace geiger {
 				float HarmonicAmplitude(uint32_t harmonic);
 				float HarmonicFrequency(uint32_t harmonic);
 
+				float max_amplitude;
 				float volume;
 
 				bool paused;
@@ -43,7 +67,7 @@ namespace geiger {
 
 				float tension;
 				float linear_density;
-				float length;
+				float active_length;
 				uint32_t number_of_harmonics;
 
 				float mass;

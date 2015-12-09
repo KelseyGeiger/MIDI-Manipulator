@@ -31,6 +31,10 @@ namespace geiger {
 			}
 
 			audio_buffer = new float[buffer_length];
+
+			for(uint32_t i = 0; i < buffer_length; i++) {
+				audio_buffer[i] = 0.0f;
+			}
 		}
 
 		SoundSample::SoundSample(const SoundSample& other) {
@@ -86,19 +90,29 @@ namespace geiger {
 		}
 
 		SoundSample SoundSample::operator+(SoundSample other) {
-			uint32_t new_rate = (sample_rate < other.sample_rate) ? sample_rate : other.sample_rate;
-			uint32_t new_dur = (duration_milliseconds < other.duration_milliseconds) ?
+			//always choose the higher quality sound
+			uint32_t new_rate = (sample_rate > other.sample_rate) ? sample_rate : other.sample_rate;
+
+			//choose the longer clip- we're adding samples together, after all
+			uint32_t new_dur = (duration_milliseconds > other.duration_milliseconds) ?
                                 duration_milliseconds :
 								other.duration_milliseconds;
 
 			SoundSample sum{new_rate, new_dur};
 
 			for(uint32_t i = 0; i < sum.buffer_length; i++) {
+				//convert a sample number to a specific time after the start of the sample
 				float t = (float)(i) / (float)(sum.sample_rate);
+
+				//use the calculated time in order to add together the two samples at the correct period
 				uint32_t this_index = (uint32_t)(t * sample_rate);
 				uint32_t other_index = (uint32_t)(t * other.sample_rate);
 
-				sum.audio_buffer[i] = audio_buffer[this_index] + other.audio_buffer[other_index];
+				sum.audio_buffer[i] = audio_buffer[this_index];
+
+				if(other_index < other.buffer_length) {
+					sum.audio_buffer[i] = other.audio_buffer[other_index];
+				}
 			}
 
 			return sum;
@@ -143,6 +157,80 @@ namespace geiger {
 			}
 
 			return *this;
+		}
+
+		float& SoundSample::operator[](size_t index) {
+			return audio_buffer[index];
+		}
+
+		const float& SoundSample::operator[](size_t index) const {
+            return audio_buffer[index];
+		}
+
+		Note::Note() : note(A), acc(NATURAL), octave(4) {}
+		Note::Note(BASE_NOTE n, ACCIDENTAL a, int8_t oct) : note(n), acc(a), octave(oct) {}
+
+		Chord::Chord() {}
+
+		Chord::Chord(std::initializer_list<Note> notes) {
+			for(Note n : notes) {
+				this->notes.push_back(n);
+			}
+		}
+
+		void Chord::AddNote(Note n) {
+			notes.push_back(n);
+		}
+
+		float NoteToFrequency(Note n) {
+            static Note STANDARD_PITCH = Note{};
+
+            int half_step_difference = ((n.note + n.acc) - (STANDARD_PITCH.note + STANDARD_PITCH.acc));
+            int octave_difference = n.octave - STANDARD_PITCH.octave;
+
+            float frequency = 440.0f * std::pow(2.0f, (octave_difference * 12.0f + half_step_difference) / 12.0f);
+
+            return frequency;
+		}
+
+		Note FrequencyToClosestNote(float freq) {
+            freq = freq / 440.0f;
+            freq = std::log(freq) / std::log(2.0f);
+            freq = freq * 12.0f;
+            int8_t octave_difference = (int8_t)(freq) / 12;
+
+            int half_step_difference;
+
+            if(octave_difference != 0) {
+				half_step_difference = (int)(freq) / octave_difference;
+            } else {
+				half_step_difference = (int)(freq) - Note::A;
+            }
+
+            Note n;
+            n.octave = 4 + octave_difference;
+
+            if(half_step_difference > -5 && half_step_difference < 3) {
+				int note_offset = (half_step_difference / 2);
+				n.note = (Note::BASE_NOTE)(Note::A + (note_offset * 2));
+
+				if(half_step_difference < 0) {
+					n.acc = (Note::ACCIDENTAL)((-half_step_difference) % 2);
+					n.note = (Note::BASE_NOTE)(n.note - 2);
+				} else if(half_step_difference > 0){
+					n.acc = (Note::ACCIDENTAL)(-(half_step_difference % 2));
+					n.note = (Note::BASE_NOTE)(n.note + 2);
+				} else {
+					n.acc = (Note::ACCIDENTAL)(0);
+				}
+
+            } else {
+				int note_offset = ((half_step_difference - 1) / 2) - 1;
+				n.note = (Note::BASE_NOTE)(Note::A + (note_offset * 2) + 1);
+				n.acc = (Note::ACCIDENTAL)(-(half_step_difference + 1) % 2);
+            }
+
+            return n;
 		}
 
 	}
