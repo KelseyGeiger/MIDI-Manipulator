@@ -3,7 +3,7 @@
 namespace geiger {
 	namespace midi {
 
-		StringSynth::StringSynth() : parameter_change(false)
+		StringSynth::StringSynth()
 		{
 			active_length = 0.6069f;
 			linear_density = 0.002f;
@@ -25,7 +25,7 @@ namespace geiger {
 			stopped = true;
 		}
 
-		StringSynth::StringSynth(float L, float ten, float mu, float gamma) : parameter_change(false)
+		StringSynth::StringSynth(float L, float ten, float mu, float gamma)
 		{
 			tension = ten;
 			active_length = L;
@@ -55,19 +55,15 @@ namespace geiger {
 		}
 
 		void StringSynth::SetHarmonicCount(uint32_t harmonics) {
-			while(parameter_change.exchange(true));
 
 			number_of_harmonics = harmonics;
 
-			parameter_change.store(false);
 		}
 
 		void StringSynth::SetActiveLength(float len) {
 			if(len <= 0.0f) {
 				return;
 			}
-
-			while(parameter_change.exchange(true));
 
 			active_length = len;
 
@@ -76,7 +72,6 @@ namespace geiger {
 			float natural_frequency = 2 * M_PI * fundamental_frequency;
 			spring_constant = (natural_frequency * natural_frequency * mass);
 
-			parameter_change.store(false);
 		}
 
 		void StringSynth::SetTension(float ten) {
@@ -84,21 +79,16 @@ namespace geiger {
 				return;
 			}
 
-			while(parameter_change.exchange(true));
-
 			tension = ten;
 
 			velocity = std::sqrt(tension / linear_density);
 
-			parameter_change.store(false);
 		}
 
 		void StringSynth::SetLinearDensity(float mu) {
 			if(mu <= 0.0f) {
 				return;
 			}
-
-			while(parameter_change.exchange(true));
 
 			linear_density = mu;
 
@@ -107,8 +97,6 @@ namespace geiger {
 			fundamental_frequency = velocity / (2 * active_length);
 			float natural_frequency = 2 * M_PI * fundamental_frequency;
 			spring_constant = (natural_frequency * natural_frequency * mass);
-
-			parameter_change.store(false);
 		}
 
 		void StringSynth::SetDampingRatio(float gamma) {
@@ -116,11 +104,7 @@ namespace geiger {
 				return;
             }
 
-			while(parameter_change.exchange(true));
-
 			damping_ratio = gamma;
-
-			parameter_change.store(false);
 		}
 
 		uint32_t StringSynth::GetHarmonicCount() const {
@@ -149,16 +133,12 @@ namespace geiger {
 		}
 
 		void StringSynth::TuneToFrequency(float freq) {
-			while(parameter_change.exchange(true));
-
             fundamental_frequency = freq;
             float natural_frequency = 2 * M_PI * fundamental_frequency;
 			spring_constant = (natural_frequency * natural_frequency * mass);
             velocity = 2.0f * active_length * fundamental_frequency;
 
             tension = linear_density * (velocity * velocity);
-
-            parameter_change.store(false);
 		}
 
 		void StringSynth::Pluck(float dist, float offset) {
@@ -166,13 +146,9 @@ namespace geiger {
 				return;
 			}
 
-			while(parameter_change.exchange(true));
-
 			distance_struck = dist;
 			initial_offset = offset;
 			time_elapsed = 0.0f;
-
-			parameter_change.store(false);
 		}
 
 		void StringSynth::Strike(float dist, float force) {
@@ -181,22 +157,14 @@ namespace geiger {
 				return;
 			}
 
-			while(parameter_change.exchange(true));
-
 			distance_struck = dist;
 			initial_offset = (force / spring_constant);
 			time_elapsed = 0.0f;
-
-			parameter_change.store(false);
 		}
 
 		void StringSynth::Silence() {
-			while(parameter_change.exchange(true));
-
 			distance_struck = 0.5f * active_length;
 			initial_offset = 0.0f;
-
-			parameter_change.store(false);
 		}
 
 		float StringSynth::Value(float t) {
@@ -337,14 +305,10 @@ namespace geiger {
 
 			len_ = len_ / sizeof(float);
 
-			while(synth->parameter_change.exchange(true));
-
 			for(int i = 0; i < len_; i++) {
 				stream[i] = synth->Value(synth->time_elapsed);
 				synth->time_elapsed += dt;
 			}
-
-			synth->parameter_change.store(false);
 		}
 
 	}

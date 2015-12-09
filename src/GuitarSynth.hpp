@@ -64,7 +64,7 @@ namespace geiger {
 				bool paused;
 				bool stopped;
 
-				std::atomic<bool> parameter_change;
+				//std::atomic<bool> parameter_change;
 
 				SDL_AudioDeviceID device_ID;
 				SDL_AudioSpec specification;

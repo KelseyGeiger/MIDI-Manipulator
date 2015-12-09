@@ -3,8 +3,7 @@
 namespace geiger {
 	namespace midi {
 
-		GuitarSynth::GuitarSynth() : parameter_change(false)
-		{
+		GuitarSynth::GuitarSynth() {
 			max_length = 0.6477f;
 			string_density = 0.002f;
 			damping_ratio = 1.5f;
@@ -38,7 +37,7 @@ namespace geiger {
             stopped = true;
 		}
 
-		GuitarSynth::GuitarSynth(float length_meters, float linear_density, float damping) : parameter_change{false} {
+		GuitarSynth::GuitarSynth(float length_meters, float linear_density, float damping) {
 			max_length = length_meters;
 			string_density = linear_density;
 			damping_ratio = damping;
@@ -76,7 +75,6 @@ namespace geiger {
 		}
 
 		void GuitarSynth::SetStringLength(float length_meters) {
-			while(parameter_change.exchange(true));
 
 			max_length = length_meters;
 
@@ -84,11 +82,9 @@ namespace geiger {
 				strings[i].SetActiveLength(max_length);
 			}
 
-			parameter_change.store(false);
 		}
 
 		void GuitarSynth::SetStringDensity(float linear_density) {
-			while(parameter_change.exchange(true));
 
 			string_density = linear_density;
 
@@ -96,11 +92,9 @@ namespace geiger {
 				strings[i].SetLinearDensity(string_density);
 			}
 
-			parameter_change.store(false);
 		}
 
 		void GuitarSynth::SetDampingRatio(float damp) {
-			while(parameter_change.exchange(true));
 
 			damping_ratio = damp;
 
@@ -108,7 +102,6 @@ namespace geiger {
 				strings[i].SetDampingRatio(damping_ratio);
 			}
 
-			parameter_change.store(false);
 		}
 
 		float GuitarSynth::GetStringLength() const {
@@ -124,14 +117,12 @@ namespace geiger {
 		}
 
 		void GuitarSynth::Strum(float time_offset_seconds) {
-			while(parameter_change.exchange(true));
 
 			for(uint32_t i = 0; i < 6; i++) {
 				strings[i].Pluck(0.23f * max_length, 0.01f);
 				time_offsets[i] = time_elapsed + time_offset_seconds;
 			}
 
-			parameter_change.store(false);
 		}
 
 		void GuitarSynth::PluckString(uint32_t string_, float time_offset_seconds) {
@@ -141,12 +132,9 @@ namespace geiger {
 
 			uint32_t idx = string_-1;
 
-            while(parameter_change.exchange(true));
-
             strings[idx].Pluck(0.23f * max_length, 0.01f);
             time_offsets[idx] = time_elapsed + time_offset_seconds;
 
-            parameter_change.store(false);
 		}
 
 		void GuitarSynth::StopString(uint32_t string_) {
@@ -156,11 +144,7 @@ namespace geiger {
 
 			uint32_t idx = string_-1;
 
-			while(parameter_change.exchange(true));
-
 			strings[idx].Silence();
-
-			parameter_change.store(false);
 		}
 
 		void GuitarSynth::FretString(Note n, uint32_t string_) {
@@ -171,11 +155,7 @@ namespace geiger {
 			float length = GetLengthForNote(string_, n);
 
 			if(length < max_length && length > 0.23 * max_length) {
-				while(parameter_change.exchange(true));
-
 				strings[string_-1].SetActiveLength(length);
-
-				parameter_change.store(false);
 			}
 		}
 
@@ -184,11 +164,7 @@ namespace geiger {
 				return;
 			}
 
-			while(parameter_change.exchange(true));
-
 			strings[string_-1].SetActiveLength(max_length);
-
-			parameter_change.store(false);
 		}
 
 		float GuitarSynth::Value(float t) {
@@ -387,14 +363,11 @@ namespace geiger {
 
 					len_ = len_ / 2;
 
-					while(synth->parameter_change.exchange(true));
-
 					for(int i = 0; i < len_; i++) {
 						stream[i] = (int16_t)(synth->Value(synth->time_elapsed) * std::numeric_limits<int16_t>::max());
 						synth->time_elapsed += dt;
 					}
 
-					synth->parameter_change.store(false);
 				}
 			}
 
@@ -402,14 +375,11 @@ namespace geiger {
 
 			len_ = len_ / sizeof(float);
 
-			while(synth->parameter_change.exchange(true));
-
 			for(int i = 0; i < len_; i++) {
 				stream[i] = synth->Value(synth->time_elapsed);
 				synth->time_elapsed += dt;
 			}
 
-			synth->parameter_change.store(false);
 		}
 
 	}

@@ -4,7 +4,7 @@
 
 #include "SDL2/SDL.h"
 #include "SDL2/SDL_main.h"
-
+#include "MIDI_VLQ.hpp"
 #include "WaveSynth.hpp"
 #include "StringSynth.hpp"
 #include "GuitarSynth.hpp"
@@ -142,6 +142,7 @@ int main(int argc, char* argv[])
 		synth.PlayChord(chord);
 	}
 
+	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(win);
 	SDL_Quit();
 

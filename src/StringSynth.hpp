@@ -84,7 +84,7 @@ namespace geiger {
 				SDL_AudioDeviceID device_ID;
 				SDL_AudioSpec specification;
 
-				std::atomic<bool> parameter_change;
+				//std::atomic<bool> parameter_change;
 		};
 
 		void stringsynth_callback(void* synth_, Uint8* stream_, int len_);
