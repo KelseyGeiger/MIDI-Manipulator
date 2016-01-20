@@ -296,7 +296,7 @@ namespace geiger {
 			want.freq = 44100;
 			want.format = AUDIO_F32SYS;
 			want.channels = 1;
-			want.samples = 4096;
+			want.samples = 8192;
 			want.callback = guitar_callback;
 			want.userdata = (void*)(this);
 
